@@ -82,18 +82,13 @@ pip_here=""$conda_base"/envs/"$env_name"/bin/pip"
 echo "python: $python_here" 
 echo "pip: $pip_here"
 
-"$pip_here" install corner eryn chainconsumer mpmath;
+"$pip_here" install corner eryn chainconsumer mpmath astropy;
 
 machine=$(uname -m)
-if [[ "$machine" == "arm64" ]]; then
-    extra_args="--ccbin /usr/bin/"
-else
-    extra_args=
-fi
 
-"$python_here" -m pip install lisaanalysistools $extra_args
-"$python_here" -m pip install bbhx $extra_args
-"$python_here" -m pip install fastemriwaveforms $extra_args
-"$python_here" -m pip install fastlisaresponse $extra_args
+"$python_here" -m pip install lisaanalysistools 
+"$python_here" -m pip install bbhx
+"$python_here" -m pip install fastemriwaveforms
+"$python_here" -m pip install fastlisaresponse
 "$python_here" -m pip install gbgpu $extra_args
 
