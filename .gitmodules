@@ -1,0 +1,3 @@
+[submodule "FastEMRIWaveforms"]
+	path = FastEMRIWaveforms
+	url = https://github.com/BlackHolePerturbationToolkit/FastEMRIWaveforms.git
