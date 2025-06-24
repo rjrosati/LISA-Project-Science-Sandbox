@@ -325,7 +325,7 @@ cpu_extension = dict(
     extra_compile_args={
         "gcc": ["-std=c++11", f"-I{gsl_prefix}/include", f"-I{openblas_prefix}/include"],
     },  # '-g'],
-    extra_link_args=['-L{gsl_prefix}/lib','-L{openblas_prefix}/lib'],
+    extra_link_args=[f'-L{gsl_prefix}/lib',f'-L{openblas_prefix}/lib'],
     include_dirs=[
         numpy_include,
         "bbhx/cutils/include",
