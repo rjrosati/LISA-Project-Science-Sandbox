@@ -93,15 +93,6 @@ machine=$(uname -m)
 
 "$python_here" -m pip install lisaanalysistools 
 "$python_here" -m pip install bbhx 
-#"$python_here" -m pip install fastemriwaveforms 
+"$python_here" -m pip install fastemriwaveforms 
 "$python_here" -m pip install fastlisaresponse 
 "$python_here" -m pip install gbgpu 
-
-# TEMPORARY
-
-git clone https://github.com/BlackHolePerturbationToolkit/FastEMRIWaveforms.git
-cd FastEMRIWaveforms
-python scripts/prebuild.py
-pip install .
-cd ..
-
