@@ -8,3 +8,11 @@
 [submodule "lisa-on-gpu"]
 	path = lisa-on-gpu
 	url = https://github.com/mikekatz04/lisa-on-gpu.git
+[submodule "BBHx"]
+	path = BBHx
+	url = https://github.com/mikekatz04/BBHx.git
+	branch = dev
+[submodule "GBGPU"]
+	path = GBGPU
+	url = https://github.com/mikekatz04/GBGPU.git
+	branch = dev

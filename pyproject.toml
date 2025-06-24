@@ -4,18 +4,13 @@ version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
     "astropy>=7.1.0",
-    "bbhx>=1.1.12",
     "chainconsumer>=1.2.2",
     "corner>=2.2.3",
     "cython>=3.1.2",
     "eryn>=1.1.14",
-    "fastemriwaveforms",
-    "fastlisaresponse",
-    "gbgpu>=1.1.3",
     "h5py>=3.14.0",
     "ipython>=9.3.0",
     "jupyterlab>=4.4.3",
-    "lisaanalysistools",
     "matplotlib>=3.10.3",
     "mpmath>=1.3.0",
     "nb-clean>=4.0.1",
@@ -25,8 +20,8 @@ dependencies = [
     "scipy>=1.16.0",
     "tqdm>=4.67.1",
 ]
-
-[tool.uv.sources]
-fastemriwaveforms = { path = "FastEMRIWaveforms" }
-fastlisaresponse = { path = "lisa-on-gpu" }
-lisaanalysistools = { path = "LISAanalysistools" }
+#
+#[tool.uv.sources]
+#fastemriwaveforms = { path = "FastEMRIWaveforms" }
+#fastlisaresponse = { path = "lisa-on-gpu" }
+#lisaanalysistools = { path = "LISAanalysistools" }
