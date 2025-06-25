@@ -40,4 +40,4 @@ uv run jupyter-lab
 ## Authors
 
 * Michael L. Katz
-* Robbie Rosati
+* Robbie Rosati (packaging)
