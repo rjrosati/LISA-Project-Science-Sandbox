@@ -1,18 +1,16 @@
 [submodule "FastEMRIWaveforms"]
 	path = FastEMRIWaveforms
 	url = https://github.com/BlackHolePerturbationToolkit/FastEMRIWaveforms.git
-[submodule "LISAanalysistools"]
-	path = LISAanalysistools
-	url = https://github.com/mikekatz04/LISAanalysistools.git
-	branch = dev
-[submodule "lisa-on-gpu"]
-	path = lisa-on-gpu
-	url = https://github.com/mikekatz04/lisa-on-gpu.git
-[submodule "BBHx"]
-	path = BBHx
-	url = https://github.com/mikekatz04/BBHx.git
-	branch = dev
 [submodule "GBGPU"]
 	path = GBGPU
 	url = https://github.com/mikekatz04/GBGPU.git
 	branch = dev
+[submodule "BBHx"]
+	path = BBHx
+	url = https://github.com/mikekatz04/BBHx.git
+[submodule "lisa-on-gpu"]
+	path = lisa-on-gpu
+	url = https://github.com/mikekatz04/lisa-on-gpu.git
+[submodule "LISAanalysistools"]
+	path = LISAanalysistools
+	url = https://github.com/mikekatz04/LISAanalysistools.git
