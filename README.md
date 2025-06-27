@@ -30,7 +30,6 @@ uv pip install -e ./lisa-on-gpu
 uv pip install -e ./LISAanalysistools
 uv pip install -e ./BBHx
 uv pip install -e ./GBGPU
-uv pip install -e ./FastEMRIWaveforms
 ```
 ## Running the notebook
 ```sh
