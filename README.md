@@ -11,6 +11,8 @@ You can install it following the directions here: https://docs.astral.sh/uv/gett
 ```sh
 brew install openblas gsl
 ```
+
+Note: if you don't homebrew, edit lines 316-317 of `bbhx_Mmac_setup.py` to point to your OpenBLAS and GSL install paths.
 ### Installing python dependencies
 ```sh
 git clone --recursive --depth=1 https://github.com/rjrosati/LISA-Project-Science-Sandbox.git
