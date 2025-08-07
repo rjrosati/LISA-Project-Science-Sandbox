@@ -39,14 +39,6 @@ from lisatools.sensitivity import A1TDISens, E1TDISens
 import corner
 from gbgpu.gbgpu import GBGPU
 
-Tobs = 0.9 * YRSID_SI
-dt = 10.0
-Nobs = int(Tobs / dt)
-Tobs = Nobs * dt
-
-psd_kwargs = dict(
-    stochastic_params=(Tobs,),
-)
 
 gb_gen = GBGPU()
 
@@ -78,146 +70,149 @@ def log_like_fn(x, gb_gen, data, psd, transform_fn, **kwargs):
 
     return ll_out
 
-def run_posterior_estimate_vgbs(vgbs, nsteps=4000, burn=5000, filename_base="vgb_sample_storage"):
-
+def run_posterior_estimate_vgbs(vgbs, nsteps=4000, burn=5000, filename_base="vgb_sample_storage", overwrite=True, Tobs = 1.0 * YRSID_SI, dt = 10.0, noise = scirdv1):
+    
     ndims = {"gb": 5}
     branch_names = ["gb"]
     nwalkers = 30
     ntemps = 10
 
+    psd_kwargs = dict(
+        stochastic_params=(Tobs,),
+    )
 
     wave_kwargs = dict(T=Tobs, dt=dt, N=256)
     for j in range(len(vgbs)):
         vgb = vgbs.iloc[j]
-        try:
-            print(f"Starting {vgb["Name"]}.")
-            params = np.array(
-                [
-                    vgb["Amplitude"],
-                    vgb["Frequency"],
-                    vgb["FrequencyDerivative"],
-                    0.0,
-                    vgb["InitialPhase"],
-                    vgb["Inclination"],
-                    vgb["Polarization"],
-                    vgb["EclipticLongitude"],
-                    vgb["EclipticLatitude"],
-                ]
-            )
-
-            fill_dict = {
-                "ndim_full": 9,
-                "fill_inds": np.array([1, 3, 7, 8]),
-                "fill_values": np.array(
-                    [vgb["Frequency"], 0.0, vgb["EclipticLongitude"], vgb["EclipticLatitude"]]
-                ),
-            }
-
-            parameter_transforms = {
-                5: np.arccos,
-            }
-
-            transform_fn = TransformContainer(
-                parameter_transforms=parameter_transforms, fill_dict=fill_dict
-            )
-
-            A_inj, E_inj = gb_gen.inject_signal(*params, **wave_kwargs)
-            data = [A_inj, E_inj]
-            df = 1 / Tobs
-            freqs = np.arange(A_inj.shape[0]) * df
-            psd = [
-                get_sensitivity(freqs, sens_fn=A1TDISens, model=scirdv1, **psd_kwargs),
-                get_sensitivity(freqs, sens_fn=E1TDISens, model=scirdv1, **psd_kwargs),
+        fp_out = filename_base + f"_{vgb["Name"][2:-1]}.h5"
+        if os.path.exists(fp_out) and not overwrite:
+            print(f"Skipping {vgb["Name"]}, output file {fp_out} exists.")
+            continue
+        print(f"Starting {vgb["Name"]}.")
+        params = np.array(
+            [
+                vgb["Amplitude"],
+                vgb["Frequency"],
+                vgb["FrequencyDerivative"],
+                0.0,
+                vgb["InitialPhase"],
+                vgb["Inclination"],
+                vgb["Polarization"],
+                vgb["EclipticLongitude"],
+                vgb["EclipticLatitude"],
             ]
-            gb_gen.d_d = np.sum(
-                [data[i].conj() * data[i] / psd[i] * 4 * df for i in range(len(data))]
-            )
+        )
 
-            try:
-                del sampler
+        fill_dict = {
+            "ndim_full": 9,
+            "fill_inds": np.array([1, 3, 7, 8]),
+            "fill_values": np.array(
+                [vgb["Frequency"], 0.0, vgb["EclipticLongitude"], vgb["EclipticLatitude"]]
+            ),
+        }
 
-            except NameError:
-                pass
+        parameter_transforms = {
+            5: np.arccos,
+        }
 
-            fp_out = filename_base + f"_{vgb["Name"][2:-1]}.h5"
-            if os.path.exists(fp_out):
-                print("Copying old file to backup so this can run. PLEASE BE CAREFUL WITH FILES if they exist already.")
-                shutil.copy(fp_out, fp_out[:-3] + "_copy_old.h5")
-                os.remove(fp_out)
-                
-            sampler = EnsembleSampler(
-                nwalkers,
-                ndims,
-                log_like_fn,
-                priors,
-                branch_names=branch_names,
-                args=(gb_gen, data, psd, transform_fn),
-                kwargs=wave_kwargs,
-                vectorize=True,
-                backend=fp_out,
-                tempering_kwargs=dict(ntemps=ntemps, Tmax=np.inf),
-                periodic=periodic,
-            )
+        transform_fn = TransformContainer(
+            parameter_transforms=parameter_transforms, fill_dict=fill_dict
+        )
 
-            sampling_inj = params[transform_fn.fill_dict["test_inds"]]
-            sampling_inj[3] = np.cos(sampling_inj[3])
+        A_inj, E_inj = gb_gen.inject_signal(*params, **wave_kwargs)
+        data = [A_inj, E_inj]
+        df = 1 / Tobs
+        freqs = np.arange(A_inj.shape[0]) * df
+        psd = [
+            get_sensitivity(freqs, sens_fn=A1TDISens, model=noise, **psd_kwargs),
+            get_sensitivity(freqs, sens_fn=E1TDISens, model=noise, **psd_kwargs),
+        ]
+        gb_gen.d_d = np.sum(
+            [data[i].conj() * data[i] / psd[i] * 4 * df for i in range(len(data))]
+        )
 
-            ll_start = np.zeros((ntemps * nwalkers,))
-            factor = 1e-5
-            cov_mat = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
+        try:
+            del sampler
 
-            start_params = np.zeros((ntemps * nwalkers, ndims["gb"]))
-            tries = 0
-            while np.std(ll_start) < 1.0:
-                fix = np.full(ntemps * nwalkers, True)
-                while np.any(fix):
-                    start_params[fix] = sampling_inj * (1.0 + factor * cov_mat * np.random.randn(ntemps * nwalkers, ndims["gb"])[fix])
-                    start_params[:] = periodic.wrap({"gb": start_params[:, None]})["gb"][:, 0]
-                    logp = priors["gb"].logpdf(start_params)
-                    fix = np.isinf(logp)
-                    tries += 1
-                    if tries > 1000:
-                        breakpoint()
-                        raise ValueError("Too many tries to start points.")
+        except NameError:
+            pass
 
-                ll_start[:] = sampler.compute_log_like(
-                    {"gb": start_params.reshape(ntemps, nwalkers, 1, ndims["gb"])}, logp=logp
-                )[0].flatten()
-                # print(ll_start, np.std(ll_start))
-                factor *= 1.5
+        
+        if os.path.exists(fp_out):
+            print("Copying old file to backup so this can run. PLEASE BE CAREFUL WITH FILES if they exist already.")
+            shutil.copy(fp_out, fp_out[:-3] + "_copy_old.h5")
+            os.remove(fp_out)
+            
+        sampler = EnsembleSampler(
+            nwalkers,
+            ndims,
+            log_like_fn,
+            priors,
+            branch_names=branch_names,
+            args=(gb_gen, data, psd, transform_fn),
+            kwargs=wave_kwargs,
+            vectorize=True,
+            backend=fp_out,
+            tempering_kwargs=dict(ntemps=ntemps, Tmax=np.inf),
+            periodic=periodic,
+        )
 
-            start_state = State({"gb": start_params.reshape(ntemps, nwalkers, 1, ndims["gb"])})
-            # state
-            nsteps = nsteps
-            sampler.run_mcmc(start_state, nsteps, burn=burn, progress=True)
+        sampling_inj = params[transform_fn.fill_dict["test_inds"]]
+        sampling_inj[3] = np.cos(sampling_inj[3])
 
-            chain = sampler.get_chain(temp_index=0)["gb"].reshape(-1, ndims["gb"])
-            fig = corner.corner(
-                chain,
-                plot_datapoints=False,
-                plot_density=False,
-                levels=1.0 - np.exp(-0.5 * np.array([1.0, 2.0, 3.0]) ** 2),
-                smooth=0.8,
-                hist_kwargs=dict(density=True),
-            )
-            fig.savefig(f"{vgb["Name"][2:-1]}_corner.png", dpi=150)
-            amps = chain[:, 0]
-            mean_amp = np.mean(amps)
-            amps_norm = amps - mean_amp
-            amplitude_std = np.std(amps_norm)
-            amplitude_error_perc = np.abs(amplitude_std / mean_amp)
-            amplidute_mean_diff_from_inj = np.abs(vgb["Amplitude"] - mean_amp)
-            amplidute_mean_diff_from_inj_perc = amplidute_mean_diff_from_inj / vgb["Amplitude"]
+        ll_start = np.zeros((ntemps * nwalkers,))
+        factor = 1e-5
+        cov_mat = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
 
-            print(
-                f"{vgb["Name"]}:\n (Injected val: {vgb["Amplitude"]}), Mean amp: {mean_amp}, diff from inj: {amplidute_mean_diff_from_inj}, percent diff from inj: {amplidute_mean_diff_from_inj_perc},\n std around mean: {amplitude_std}, perc error: {amplitude_error_perc}\n\n"
-            )
+        start_params = np.zeros((ntemps * nwalkers, ndims["gb"]))
+        tries = 0
+        while np.std(ll_start) < 1.0:
+            fix = np.full(ntemps * nwalkers, True)
+            while np.any(fix):
+                start_params[fix] = sampling_inj * (1.0 + factor * cov_mat * np.random.randn(ntemps * nwalkers, ndims["gb"])[fix])
+                start_params[:] = periodic.wrap({"gb": start_params[:, None]})["gb"][:, 0]
+                logp = priors["gb"].logpdf(start_params)
+                fix = np.isinf(logp)
+                tries += 1
+                if tries > 1000:
+                    breakpoint()
+                    raise ValueError("Too many tries to start points.")
 
-            del sampler, A_inj, E_inj, fig
-            print(f"Finished {vgb["Name"]}.")
+            ll_start[:] = sampler.compute_log_like(
+                {"gb": start_params.reshape(ntemps, nwalkers, 1, ndims["gb"])}, logp=logp
+            )[0].flatten()
+            # print(ll_start, np.std(ll_start))
+            factor *= 1.5
 
-        except ValueError:
-            print(f"Did not work for {vgb["Name"]}.")
+        start_state = State({"gb": start_params.reshape(ntemps, nwalkers, 1, ndims["gb"])})
+        # state
+        nsteps = nsteps
+        sampler.run_mcmc(start_state, nsteps, burn=burn, progress=True)
+
+        chain = sampler.get_chain(temp_index=0)["gb"].reshape(-1, ndims["gb"])
+        fig = corner.corner(
+            chain,
+            plot_datapoints=False,
+            plot_density=False,
+            levels=1.0 - np.exp(-0.5 * np.array([1.0, 2.0, 3.0]) ** 2),
+            smooth=0.8,
+            hist_kwargs=dict(density=True),
+        )
+        fig.savefig(f"{vgb["Name"][2:-1]}_corner.png", dpi=150)
+        amps = chain[:, 0]
+        mean_amp = np.mean(amps)
+        amps_norm = amps - mean_amp
+        amplitude_std = np.std(amps_norm)
+        amplitude_error_perc = np.abs(amplitude_std / mean_amp)
+        amplidute_mean_diff_from_inj = np.abs(vgb["Amplitude"] - mean_amp)
+        amplidute_mean_diff_from_inj_perc = amplidute_mean_diff_from_inj / vgb["Amplitude"]
+
+        print(
+            f"{vgb["Name"]}:\n (Injected val: {vgb["Amplitude"]}), Mean amp: {mean_amp}, diff from inj: {amplidute_mean_diff_from_inj}, fractional diff from inj: {amplidute_mean_diff_from_inj_perc},\n std around mean: {amplitude_std}, fractional error: {amplitude_error_perc}\n\n"
+        )
+
+        del sampler, A_inj, E_inj, fig
+        print(f"Finished {vgb["Name"]}.")
 
 if __name__ == "__main__":
     vgbs = pd.read_csv("vgbs.txt")
