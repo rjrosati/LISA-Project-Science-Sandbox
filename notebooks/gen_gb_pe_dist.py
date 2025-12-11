@@ -40,7 +40,7 @@ import corner
 from gbgpu.gbgpu import GBGPU
 
 
-gb_gen = GBGPU()
+gb_gen = GBGPU(force_backend="cpu")
 
 priors = {
     "gb": ProbDistContainer(
@@ -59,9 +59,7 @@ priors = {
     )
 }
 
-
 periodic = PeriodicContainer({"gb": {2: 2 * np.pi, 4: np.pi}})
-
 
 def log_like_fn(x, gb_gen, data, psd, transform_fn, **kwargs):
 
@@ -95,28 +93,24 @@ def run_posterior_estimate_vgbs(vgbs, nsteps=4000, burn=5000, filename_base="vgb
                 vgb["Frequency"],
                 vgb["FrequencyDerivative"],
                 0.0,
-                vgb["InitialPhase"],
+                np.random.uniform(0.0, 2 * np.pi),  # vgb["InitialPhase"],
                 vgb["Inclination"],
-                vgb["Polarization"],
+                np.random.uniform(0.0, np.pi),  # vgb["Polarization"],
                 vgb["EclipticLongitude"],
                 vgb["EclipticLatitude"],
             ]
         )
 
-        fill_dict = {
-            "ndim_full": 9,
-            "fill_inds": np.array([1, 3, 7, 8]),
-            "fill_values": np.array(
-                [vgb["Frequency"], 0.0, vgb["EclipticLongitude"], vgb["EclipticLatitude"]]
-            ),
-        }
+        fill_dict = {1: vgb["Frequency"], 3: 0.0, 7: vgb["EclipticLongitude"], 8: vgb["EclipticLatitude"]}
 
         parameter_transforms = {
             5: np.arccos,
         }
 
+        input_basis = [0, 2, 4, 5, 6]
+        output_basis = [0, 1, 2, 3, 4, 5, 6, 7, 8]
         transform_fn = TransformContainer(
-            parameter_transforms=parameter_transforms, fill_dict=fill_dict
+            input_basis, output_basis, parameter_transforms=parameter_transforms, fill_dict=fill_dict
         )
 
         A_inj, E_inj = gb_gen.inject_signal(*params, **wave_kwargs)
@@ -159,7 +153,6 @@ def run_posterior_estimate_vgbs(vgbs, nsteps=4000, burn=5000, filename_base="vgb
 
         sampling_inj = params[transform_fn.fill_dict["test_inds"]]
         sampling_inj[3] = np.cos(sampling_inj[3])
-
         ll_start = np.zeros((ntemps * nwalkers,))
         factor = 1e-5
         cov_mat = np.array([1.0, 1.0, 1.0, 1.0, 1.0])
@@ -187,6 +180,7 @@ def run_posterior_estimate_vgbs(vgbs, nsteps=4000, burn=5000, filename_base="vgb
         start_state = State({"gb": start_params.reshape(ntemps, nwalkers, 1, ndims["gb"])})
         # state
         nsteps = nsteps
+
         sampler.run_mcmc(start_state, nsteps, burn=burn, progress=True)
 
         chain = sampler.get_chain(temp_index=0)["gb"].reshape(-1, ndims["gb"])
@@ -215,17 +209,16 @@ def run_posterior_estimate_vgbs(vgbs, nsteps=4000, burn=5000, filename_base="vgb
         print(f"Finished {vgb["Name"]}.")
 
 if __name__ == "__main__":
-    vgbs = pd.read_csv("vgbs.txt")
+    vgbs = pd.DataFrame(np.load("vgbs/VGB.npy"))
 
     keep = [
-        "b'AMCVn'",
-        "b'SDSSJ1908'",
-        "b'HPLib'",
-        "b'V803Cen'",
-        "b'J0526+5934'",
-        "b'HMCnc'",
+        'ESCet',
+        # 'SDSSJ1908',
+        # 'HPLib',
+        # 'V803Cen',
+        # 'J0526+5934',
+        # 'HMCnc',
     ]
-
     inds_keep = []
     for i in range(len(vgbs)):
         vgb = vgbs.iloc[i]
@@ -234,5 +227,4 @@ if __name__ == "__main__":
             inds_keep.append(i)
     inds_keep = np.asarray(inds_keep)
     vgbs_keep = vgbs.iloc[inds_keep]
-    run_posterior_estimate_vgbs(vgbs.iloc[1:])
-    breakpoint()
+    run_posterior_estimate_vgbs(vgbs_keep)
